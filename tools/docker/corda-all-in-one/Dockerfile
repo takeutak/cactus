@@ -4,7 +4,10 @@ RUN mkdir -p /opt/corda/bin
 COPY --from=corda /opt/corda/bin/ /opt/corda/bin/
 
 ARG KEYPATH=~/.ssh/id_rsa.pub
-
+ARG HAWT_IO_VERSION=2.10.1
+ARG BRAID_SERVER_VERSION=4.1.2-RC13
+ARG BRAID_A_HTTP_PORT=8081
+ARG BRAID_B_HTTP_PORT=8082
 
 # Set up Open-SSH server
 RUN apk update && \
@@ -85,6 +88,26 @@ RUN chmod +x /opt/corda/builder/deploy_contract.sh
 ADD builder/gradlew /opt/corda/builder/gradlew
 ADD builder/gradle /opt/corda/builder/gradle
 
+# Set up hawt.io for JMX monitoring (party A and B nodes)
+RUN wget -O hawtio-app.jar https://repo1.maven.org/maven2/io/hawt/hawtio-app/${HAWT_IO_VERSION}/hawtio-app-${HAWT_IO_VERSION}.jar
+
+# Set up braid-server for the dynamic RPC Proxy
+RUN mkdir -p /opt/braid/braid-server/
+RUN wget -O /opt/braid/braid-server/braid-server.jar https://search.maven.org/remotecontent?filepath=io/bluebank/braid/braid-server/${BRAID_SERVER_VERSION}/braid-server-${BRAID_SERVER_VERSION}.jar
+
+# Party A Jolokia
+EXPOSE 7005
+
+# Party B Jolokia
+EXPOSE 7006
+
+# hawt.io web UI
+EXPOSE  8080
+
+# Braid HTTP Interface
+EXPOSE ${BRAID_A_HTTP_PORT}
+EXPOSE ${BRAID_B_HTTP_PORT}
+
 EXPOSE 10013
 EXPOSE 10014
 EXPOSE 10003
@@ -95,4 +118,7 @@ EXPOSE 20014
 WORKDIR /opt/corda
 
 COPY supervisord.conf /etc/supervisord.conf
+
+HEALTHCHECK CMD wget -qO- http://localhost:8081/api/rest/cordapps
+
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]

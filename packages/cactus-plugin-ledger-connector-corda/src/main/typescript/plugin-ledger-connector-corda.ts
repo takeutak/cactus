@@ -1,72 +1,106 @@
+import { promisify } from "util";
+import { Server, createServer } from "http";
+import { Server as SecureServer } from "https";
+
+import { Optional } from "typescript-optional";
+import { NodeSSH, Config as SshConfig } from "node-ssh";
+import express, { Express } from "express";
+import bodyParser from "body-parser";
+
 import {
   IPluginLedgerConnector,
   IWebServiceEndpoint,
   IPluginWebService,
   PluginAspect,
 } from "@hyperledger/cactus-core-api";
-import { Logger, LoggerProvider } from "@hyperledger/cactus-common";
 
-import { promisify } from "util";
-import { Optional } from "typescript-optional";
-import { Server } from "http";
-import { Server as SecureServer } from "https";
-import { DeployContractEndpoint } from "./web-services/deploy-contract-endpoint";
-import { NodeSSH } from "node-ssh";
+import {
+  Checks,
+  Logger,
+  LoggerProvider,
+  LogLevelDesc,
+  Servers,
+} from "@hyperledger/cactus-common";
 
-/**
- * FIXME: This is under construction.
- */
-export interface ITransactionOptions {
-  privateKey?: string;
-}
+import { DeployContractJarsEndpoint } from "./web-services/deploy-contract-jars-endpoint";
 
 export interface IPluginLedgerConnectorCordaOptions {
-  host: string;
-  port: number;
-  username: string;
-  password: string;
-}
-
-export interface ICordaDeployContractOptions {
-  host: string;
-  username: string;
-  port: number;
-  privateKey: string; // The private key used to ssh into Docker container
-  contractZip: string;
+  logLevel?: LogLevelDesc;
+  sshConfig: SshConfig;
+  corDappsDir: string;
+  webAppOptions?: any;
+  cordaStartCmd?: string;
+  cordaStopCmd?: string;
 }
 
 export class PluginLedgerConnectorCorda
   implements IPluginLedgerConnector<any, any>, IPluginWebService {
+  public static readonly CLASS_NAME = "DeployContractJarsEndpoint";
+
   private readonly log: Logger;
+
+  public get className() {
+    return DeployContractJarsEndpoint.CLASS_NAME;
+  }
+
   private httpServer: Server | SecureServer | null = null;
 
   constructor(public readonly options: IPluginLedgerConnectorCordaOptions) {
-    if (!options) {
-      throw new Error(`PluginLedgerConnectorCorda#ctor options falsy.`);
-    }
-    if (!options.port) {
-      throw new Error(`PluginLedgerConnectorCorda#ctor options.port falsy.`);
-    }
-    this.log = LoggerProvider.getOrCreate({
-      label: "plugin-ledger-connector-corda",
-      level: "trace",
-    });
+    const fnTag = `${this.className}#constructor()`;
+
+    Checks.truthy(options, `${fnTag} options`);
+    Checks.truthy(options.sshConfig, `${fnTag} options.sshConfig`);
+
+    const level = options.logLevel || "INFO";
+    const label = "plugin-ledger-connector-corda";
+    this.log = LoggerProvider.getOrCreate({ level, label });
+  }
+
+  public deployContract(options?: any): Promise<any> {
+    throw new Error("Method not implemented.");
   }
 
   public async installWebServices(
     expressApp: any
   ): Promise<IWebServiceEndpoint[]> {
+    this.log.info(`Installing web services for plugin ${this.getId()}...`);
+    const webApp: Express = this.options.webAppOptions ? express() : expressApp;
+
+    // FIXME refactor this
+    // presence of webAppOptions implies that caller wants the plugin to configure it's own express instance on a custom
+    // host/port to listen on
+    if (this.options.webAppOptions) {
+      this.log.info(`Creating dedicated HTTP server...`);
+      const { port, hostname } = this.options.webAppOptions;
+
+      webApp.use(bodyParser.json({ limit: "50mb" }));
+
+      this.httpServer = createServer(webApp);
+      const listenOptions = { port, hostname, server: this.httpServer };
+      const addressInfo = await Servers.listen(listenOptions);
+
+      this.log.info(`Creation of HTTP server OK %o`, { addressInfo });
+    }
+
     const endpoints: IWebServiceEndpoint[] = [];
     {
-      const pluginId = this.getId(); // @hyperledger/cactus-plugin-ledger-connector-corda
-      const path = `/api/v1/plugins/${pluginId}/contract/deploy`;
-      const endpoint: IWebServiceEndpoint = new DeployContractEndpoint({
-        path,
-        plugin: this,
+      const endpoint = new DeployContractJarsEndpoint({
+        sshConfig: this.options.sshConfig,
+        logLevel: this.options.logLevel,
+        corDappsDir: this.options.corDappsDir,
+        cordaStartCmd: this.options.cordaStartCmd,
+        cordaStopCmd: this.options.cordaStopCmd,
       });
-      expressApp.use(endpoint.getPath(), endpoint.getExpressRequestHandler());
+
+      const verb = endpoint.getVerbLowerCase();
+      const path = endpoint.getPath();
+      const handler = endpoint.getExpressRequestHandler();
+
+      (webApp as any)[verb](path, handler);
+
       endpoints.push(endpoint);
-      this.log.info(`Registered contract deployment endpoint at ${path}`);
+
+      this.log.info(`Registered endpoint at ${endpoint.getPath()}`);
     }
     return endpoints;
   }
@@ -89,51 +123,6 @@ export class PluginLedgerConnectorCorda
 
   public getAspect(): PluginAspect {
     return PluginAspect.LEDGER_CONNECTOR;
-  }
-
-  public async deployContract(
-    options: ICordaDeployContractOptions
-  ): Promise<any> {
-    if (!options.contractZip) {
-      throw new Error(
-        `PluginLedgerConnectorCorda#deployContract() options.contractZip falsy.`
-      );
-    }
-    const log = this.log;
-    const ssh = new NodeSSH();
-    log.info("Port: %d | Key: %s", options.port, options.privateKey);
-    ssh
-      .connect({
-        host: "localhost",
-        username: "root",
-        port: options.port,
-        privateKey: options.privateKey,
-      })
-      .then(() => {
-        // Local, Remote
-        ssh
-          .putFile(
-            "/Users/jacob.weate/Projects/ssh-docker/builder/upload.zip",
-            "/root/smart-contracts/upload.zip"
-          )
-          .then(
-            () => {
-              log.info("Smart Contracts uploaded to server");
-              ssh
-                .execCommand("/bin/ash deploy_contract.sh", {
-                  cwd: "/opt/corda/builder",
-                })
-                .then((result) => {
-                  log.info("STDOUT: " + result.stdout);
-                  log.info("STDERR: " + result.stderr);
-                });
-            },
-            (error) => {
-              log.info("Error: Failed to upload smart contract to server");
-              log.info(error);
-            }
-          );
-      });
   }
 
   public async getFlowList(): Promise<any> {
@@ -159,22 +148,15 @@ export class PluginLedgerConnectorCorda
   }
 
   public async executeCordaCommand(command: string): Promise<any> {
-    const log = this.log;
     const ssh = new NodeSSH();
     let nodeResult = "";
-    ssh
-      .connect({
-        host: this.options.host,
-        port: this.options.port,
-        username: this.options.username,
-        password: this.options.password,
-      })
-      .then(() => {
-        ssh.execCommand(command).then((result) => {
-          this.log.info("STDOUT: " + result.stdout);
-          nodeResult = result.stdout;
-        });
-      });
+
+    await ssh.connect(this.options.sshConfig);
+    const result = await ssh.execCommand(command);
+    ssh.dispose();
+    this.log.debug("STDOUT: " + result.stdout);
+    this.log.debug("STDERR: " + result.stderr);
+    nodeResult = result.stdout;
     return nodeResult;
   }
 

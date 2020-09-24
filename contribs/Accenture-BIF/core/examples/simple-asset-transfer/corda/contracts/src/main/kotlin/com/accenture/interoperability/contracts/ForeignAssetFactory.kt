@@ -2,6 +2,7 @@ package com.accenture.interoperability.contracts
 
 import com.accenture.interoperability.states.AssetState
 import com.fasterxml.jackson.annotation.JsonAlias
+import com.fasterxml.jackson.annotation.JsonAutoDetect
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
@@ -13,6 +14,7 @@ object ForeignAssetFactory {
 
     @CordaSerializable
     @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
     data class MessageV2(
         val assetId: String,
         val origin: List<Origin>,
@@ -22,6 +24,7 @@ object ForeignAssetFactory {
 
     @CordaSerializable
     @JsonIgnoreProperties(ignoreUnknown = true)
+    @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
     data class Message(
 
         @JsonAlias("assetId", "asset_id")
@@ -32,6 +35,7 @@ object ForeignAssetFactory {
     )
 
     @CordaSerializable
+    @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
     data class Origin(
 
         @JsonAlias("originDLTId", "origin_dlt_id")
@@ -42,6 +46,7 @@ object ForeignAssetFactory {
     )
 
     @CordaSerializable
+    @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
     data class Properties(
         val property1: String,
         val property2: String

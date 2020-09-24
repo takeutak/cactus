@@ -1,4 +1,4 @@
-FROM corda/corda-zulu-4.0:latest AS corda
+FROM corda/corda-zulu-java1.8-4.5:RELEASE AS corda
 FROM adoptopenjdk/openjdk8:alpine
 RUN mkdir -p /opt/corda/bin
 COPY --from=corda /opt/corda/bin/ /opt/corda/bin/
@@ -107,6 +107,7 @@ EXPOSE  8080
 # Braid HTTP Interface
 EXPOSE ${BRAID_A_HTTP_PORT}
 EXPOSE ${BRAID_B_HTTP_PORT}
+EXPOSE 8083
 
 EXPOSE 10013
 EXPOSE 10014

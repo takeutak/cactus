@@ -4,6 +4,7 @@ import co.paralleluniverse.fibers.Suspendable
 import com.accenture.interoperability.contracts.ActorContract
 import com.accenture.interoperability.states.ActorState
 import com.accenture.interoperability.states.ActorType
+import com.fasterxml.jackson.annotation.JsonAutoDetect
 import net.corda.core.contracts.TransactionState
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.crypto.SecureHash
@@ -16,10 +17,12 @@ import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
 
+@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
 object CreateActorFlow {
 
     @InitiatingFlow
     @StartableByRPC
+    @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
     class Initiator(
         private val pubKey: String,
         private val participants: List<Party> = listOf(),
@@ -89,6 +92,7 @@ object CreateActorFlow {
     }
 
     @InitiatedBy(Initiator::class)
+    @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
     class Responder(val counterPartySession: FlowSession) : FlowLogic<Unit>() {
         @Suspendable
         override fun call() {

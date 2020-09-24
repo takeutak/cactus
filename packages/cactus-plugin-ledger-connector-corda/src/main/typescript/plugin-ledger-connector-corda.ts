@@ -26,7 +26,8 @@ import { DeployContractJarsEndpoint } from "./web-services/deploy-contract-jars-
 
 export interface IPluginLedgerConnectorCordaOptions {
   logLevel?: LogLevelDesc;
-  sshConfig: SshConfig;
+  sshConfigAdminShell: SshConfig;
+  sshConfigNodeShell: SshConfig;
   corDappsDir: string;
   webAppOptions?: any;
   cordaStartCmd?: string;
@@ -49,7 +50,8 @@ export class PluginLedgerConnectorCorda
     const fnTag = `${this.className}#constructor()`;
 
     Checks.truthy(options, `${fnTag} options`);
-    Checks.truthy(options.sshConfig, `${fnTag} options.sshConfig`);
+    Checks.truthy(options.sshConfigAdminShell, `${fnTag} sshConfigAdminShell`);
+    Checks.truthy(options.sshConfigNodeShell, `${fnTag} sshConfigNodeShell`);
 
     const level = options.logLevel || "INFO";
     const label = "plugin-ledger-connector-corda";
@@ -85,7 +87,8 @@ export class PluginLedgerConnectorCorda
     const endpoints: IWebServiceEndpoint[] = [];
     {
       const endpoint = new DeployContractJarsEndpoint({
-        sshConfig: this.options.sshConfig,
+        sshConfigAdminShell: this.options.sshConfigAdminShell,
+        sshConfigNodeShell: this.options.sshConfigNodeShell,
         logLevel: this.options.logLevel,
         corDappsDir: this.options.corDappsDir,
         cordaStartCmd: this.options.cordaStartCmd,
@@ -151,7 +154,7 @@ export class PluginLedgerConnectorCorda
     const ssh = new NodeSSH();
     let nodeResult = "";
 
-    await ssh.connect(this.options.sshConfig);
+    await ssh.connect(this.options.sshConfigNodeShell);
     const result = await ssh.execCommand(command);
     ssh.dispose();
     this.log.debug("STDOUT: " + result.stdout);

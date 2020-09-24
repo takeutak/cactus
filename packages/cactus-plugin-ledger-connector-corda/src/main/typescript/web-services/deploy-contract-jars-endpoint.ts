@@ -26,7 +26,8 @@ import {
 
 export interface IDeployContractEndpointOptions {
   logLevel?: LogLevelDesc;
-  sshConfig: SshConfig;
+  sshConfigAdminShell: SshConfig;
+  sshConfigNodeShell: SshConfig;
   corDappsDir: string;
   cordaStartCmd?: string;
   cordaStopCmd?: string;
@@ -45,7 +46,7 @@ export class DeployContractJarsEndpoint implements IWebServiceEndpoint {
     const fnTag = `${this.className}#constructor()`;
 
     Checks.truthy(options, `${fnTag} options`);
-    Checks.truthy(options.sshConfig, `${fnTag} options.sshConfig`);
+    Checks.truthy(options.sshConfigAdminShell, `${fnTag} options.sshConfig`);
 
     const level = options.logLevel || "INFO";
     const label = "deploy-contract-jars-endpoint";
@@ -108,7 +109,7 @@ export class DeployContractJarsEndpoint implements IWebServiceEndpoint {
       throw new TypeError(`${fnTag} expected req.files to be an array`);
     }
 
-    const { sshConfig, corDappsDir: cordappDir } = this.options;
+    const { sshConfigAdminShell, corDappsDir: cordappDir } = this.options;
     const ssh = new NodeSSH();
     try {
       const resBody: DeployContractJarsSuccessV1Response = {
@@ -119,7 +120,7 @@ export class DeployContractJarsEndpoint implements IWebServiceEndpoint {
       const prefix = `hyperledger-cactus-${this.className}`;
       const tmpDirPath = temp.mkdirSync(prefix);
 
-      await ssh.connect(sshConfig);
+      await ssh.connect(sshConfigAdminShell);
 
       await this.stopCordaNode(ssh);
 

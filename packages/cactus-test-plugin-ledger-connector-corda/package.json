@@ -70,6 +70,7 @@
     "@hyperledger/cactus-sdk": "0.2.0",
     "@hyperledger/cactus-test-tooling": "0.2.0",
     "axios": "0.19.2",
+    "axios-retry": "3.1.9",
     "joi": "14.3.1",
     "node-ssh": "^11.0.0",
     "typescript-optional": "2.0.1",

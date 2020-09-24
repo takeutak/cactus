@@ -1,6 +1,9 @@
 import { AddressInfo } from "net";
 import fs from "fs";
+import https from "https";
 import path from "path";
+import axios from "axios";
+import axiosRetry from "axios-retry";
 
 import test, { Test } from "tape";
 
@@ -33,7 +36,8 @@ test("deploys contracts via .jar files", async (t: Test) => {
   const corDappsDirA = await ledger.getCorDappsDirPartyA();
   const corDappsDirB = await ledger.getCorDappsDirPartyB();
 
-  const sshConfig = await ledger.getSshConfig();
+  const sshConfigAdminShell = await ledger.getSshConfig();
+  const sshConfigNodeShell = await ledger.getSshConfigPartyA();
 
   // The corda test ledger is an alpine based container and as such it does not
   // have systemd, but supervisord instead so we must alter the start/stop CMDs
@@ -41,7 +45,8 @@ test("deploys contracts via .jar files", async (t: Test) => {
   const cordaStopCmd = "supervisorctl stop partyA";
 
   const connector = new PluginLedgerConnectorCorda({
-    sshConfig,
+    sshConfigAdminShell,
+    sshConfigNodeShell,
     webAppOptions: { hostname: "127.0.0.1", port: 0 },
     logLevel: "TRACE",
     corDappsDir: corDappsDirA,
@@ -63,16 +68,29 @@ test("deploys contracts via .jar files", async (t: Test) => {
 
   const configuration: Configuration = new Configuration({
     basePath: apiUrl,
+    baseOptions: {
+      maxContentLength: 128 * 1024 * 1024,
+      maxBodyLength: 128 * 1024 * 1024,
+    },
   });
   const apiClient = new ApiClient(configuration).extendWith(DefaultApi);
 
-  const cordappDir = "../../../../jar/cordapps/";
+  // const cordappDir = "../../../../jar/cordapps/";
 
   const jarFilename1 = "workflows.jar";
   const jarFilename2 = "contracts.jar";
 
-  const jarPath1 = path.join(__dirname, cordappDir, jarFilename1);
-  const jarPath2 = path.join(__dirname, cordappDir, jarFilename2);
+  // const dir = "/home/peter/a/blockchain/corda-samples-java/Basic/cordapp-example/workflows-kotlin/build/mock-network/20200922-013734.720/nodes/0/cordapps";
+  // const jarPath1 = dir + "/cordapp-example-workflows-0.1.jar";
+  // const jarPath2 = dir + "/cordapp-example-contracts-0.1.jar"
+
+  const jarPath1 =
+    "/home/peter/a/blockchain/blockchain-integration-framework/tools/docker/corda-all-in-one/builder/workflows/build/libs/workflows.jar";
+  const jarPath2 =
+    "/home/peter/a/blockchain/blockchain-integration-framework/tools/docker/corda-all-in-one/builder/contracts/build/libs/contracts.jar";
+
+  // const jarPath1 = path.join(__dirname, cordappDir, jarFilename1);
+  // const jarPath2 = path.join(__dirname, cordappDir, jarFilename2);
 
   const jar1B64 = fs.readFileSync(jarPath1, { encoding: "base64" });
   const jar2B64 = fs.readFileSync(jarPath2, { encoding: "base64" });
@@ -89,7 +107,28 @@ test("deploys contracts via .jar files", async (t: Test) => {
   const res = await apiClient.cordaDeployContractJarsV1(reqBody);
   t.equal(res.status, 200, "res.status === 200");
 
+  const x = await ledger.getPartyABraidPublicPort();
+  const partyABraidFlowsGetUrl = `https://127.0.0.1:${x}/api/flows`;
+  t.comment(`partyABraidFlowsGetUrl=${partyABraidFlowsGetUrl}`);
+
+  const axiosInstance = axios.create({
+    httpsAgent: new https.Agent({
+      rejectUnauthorized: false,
+    }),
+  });
+
+  axiosRetry(axiosInstance, {
+    retries: 7,
+    retryDelay: axiosRetry.exponentialDelay,
+  });
+
+  const resFlows = await axiosInstance.get(partyABraidFlowsGetUrl);
+  t.comment(`Braid Get Flows Response Status Text: ${resFlows.statusText}`);
+  t.comment(`Braid Get Flows Response Data: ${resFlows.data}`);
+  t.equal(resFlows.status, 200);
+
   const flowList2 = await connector.getFlowList();
   t.comment(`Flow List 2: ${JSON.stringify(flowList2)}`);
+
   t.end();
 });

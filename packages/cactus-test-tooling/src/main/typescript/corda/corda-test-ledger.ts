@@ -1,8 +1,7 @@
 import { EventEmitter } from "events";
 
 import { Config as SshConfig } from "node-ssh";
-import Docker, { Container, ContainerInfo, Network } from "dockerode";
-import isPortReachable from "is-port-reachable";
+import Docker, { Container, ContainerInfo } from "dockerode";
 import Joi from "joi";
 
 import { ITestLedger } from "../i-test-ledger";
@@ -230,6 +229,11 @@ export class CordaTestLedger implements ITestLedger {
   public async getRpcBPublicPort(): Promise<number> {
     const aContainerInfo = await this.getContainerInfo();
     return Containers.getPublicPort(this.rpcPortB, aContainerInfo);
+  }
+
+  public async getPartyABraidPublicPort(): Promise<number> {
+    const aContainerInfo = await this.getContainerInfo();
+    return Containers.getPublicPort(8083, aContainerInfo);
   }
 
   public async getHawtIoPublicPort(): Promise<number> {

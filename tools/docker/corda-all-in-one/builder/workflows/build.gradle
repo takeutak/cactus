@@ -50,6 +50,8 @@ dependencies {
 
     // CorDapp dependencies.
     cordapp project(":contracts")
+
+    compile "io.cordite.braid:braid-corda:$braid_version"
 }
 
 task integrationTest(type: Test, dependsOn: []) {

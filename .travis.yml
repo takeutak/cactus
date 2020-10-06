@@ -3,9 +3,36 @@ node_js:
   - 12
   - 14
 
-os: linux
+# jobs:
+#   include:
+#     - os: osx
+#       osx_image: xcode11.5
+#     - os: windows
+#     - os: linux
+#       dist: bionic
+#     - os: linux
+#       dist: xenial
 
-dist: bionic
+matrix:
+  include:
+    - os: osx
+      osx_image: xcode11.5
+      language: node_js
+      node_js:
+        - 10
+        - 12
+        - 14
+    - os: windows
+      language: node_js
+      node_js:
+        - 10
+        - 12
+        - 14
+    - os: linux
+      dist: bionic
+    - os: linux
+      dist: xenial
+
 
 services:
   - docker

@@ -685,50 +685,73 @@ After the forming of the consortium with it's initial set of members (one or mor
 
 # 5. Architecture
 
-## 5.1 Integration patterns
+## 5.1 Overall architecture diagram
 
-Hyperledger Cactus has several integration patterns as the following.
-
-- Note: In the following description, **Value (V)** means numerical assets (e.g. money). **Data (D)** means non-numerical assets (e.g. ownership proof). Ledger 1 is source ledger, Ledger 2 is destination ledger.
-
-| No. | Name                | Pattern | Consistency                                                                                    |
-| --- | ------------------- | ------- | ---------------------------------------------------------------------------------------------- |
-| 1.  | value transfer      | V -> V  | check if V1 = V2 <br> (as V1 is value on ledger 1, V2 is value on ledger 2)                    |
-| 2.  | value-data transfer | V -> D  | check if data transfer is successful when value is transferred                                 |
-| 3.  | data-value transfer | D -> V  | check if value transfer is successful when data is transferred                                 |
-| 4.  | data transfer       | D -> D  | check if all D1 is copied on ledger 2 <br> (as D1 is data on ledger 1, D2 is data on ledger 2) |
-| 5.  | data merge          | D <-> D | check if D1 = D2 as a result <br> (as D1 is data on ledger 1, D2 is data on ledger 2)          |
-
-## 5.2 System architecture and basic flow
-
+<!-- 
+  [CHANGE.LOG of refactoring new whitepaper]
+  * base: current whitepaper section 5.2 System architecture and basic flow
+  -->
 Hyperledger Cactus will provide integrated service(s) by executing ledger operations across multiple blockchain ledgers. The execution of operations are controlled by the module of Hyperledger Cactus which will be provided by vendors as the single Hyperledger Cactus Business Logic plugin.
 The supported blockchain platforms by Hyperledger Cactus can be added by implementing new Hyperledger Cactus Ledger plugin.
 Once an API call to Hyperledger Cactus framework is requested by a User, Business Logic plugin determines which ledger operations should be executed, and it ensures reliability on the issued integrated service is completed as expected.
 Following diagram shows the architecture of Hyperledger Cactus based on the discussion made at Hyperledger Cactus project calls.
 The overall architecture is as the following figure.
 
-<img src="./architecture-with-plugin-and-routing.png" width="700">
+<img src="./cactus_arch.svg" width="700">
 
-### 5.2.1 Definition of key components in system architecture
+## 5.2 Behaviors of the components
 
+<!-- 
+  [CHANGE.LOG of refactoring new whitepaper]
+  * base: current whitepaper section 5.2.1 Definition of key components in system architecture
+  -->
 Key components are defined as follows:
-- **Application user**: The entity submits API calls to "Cactus Routing Interface". Note: this component is exist outside of Cactus service system.
 - **Business Logic Plugin**: The entity executes business logic and provide integration services that are connected with multiple blockchains. The entity is composed by web application or smart contract on a blockchain. The entity is a single plugin and required for executing Hyperledger Cactus applications.
+- **Command API Server (cmd-api-server)**: The server accepts a request from an End-user Application, and return a response depending on the status of the targeted trade. Trade ID will be assigned when a new trade is accepted.
+- **End-user Application**: The entity submits API calls to request a trade, which invokes a set of transactions on Ledger by the Business Logic Plugin.
+- **Ledger Event Listener**: The standard interface to handle various kinds of events(LedgerEvent) regarding asynchronous Ledger operations. The LedgerEvent will be notified to appropriate business logic to handle it.
 - **Ledger Plugin**: The entity communicates Business Logic Plugin with each ledger.  The entity is composed by a validator and a verifier as follows. The entity(s) is(are) chosen from multiple plugins on configuration.
+- **Service Provider Application**: The entity submits API calls to control the cmd-api-server when it is enabling/disabling Ledger plugins, or shutting down the server. Additional commands may be available on Admin API since **Server controller** is implementation-dependent.
 - **Validator**: The entity monitors transaction records of Ledger operation, and it determines the result(success, failed, timeouted) from the transaction records.
 Validator ensure the determined result with attaching digital signature with "Validator key" which can be verified by "Verifier".
-- **Verifier**: The entity accepts only sucussfully verified operation results by verifying the digital signature of the validator. Note that "Validator" is apart from "Verifier" over a bi-directional channel.
-- **Cactus Routing Interface**: The entity is a routing service between "Business Logic Plugin" and  "Ledger Plugin(s)". The entity is also a routing service between Business Logic Plugin and API calls from "Application user(s)".
-- **Ledger-n**: DLT platforms(e.g. Ethereum, Quorum, Hyperledger Fabric, ...)
+- **Validator Server**: The server accepts a connection from Verifier, and it provides Validator API, which can be used for controlling and monitoring Ledger behind it. The LedgerConnector will be implemented for interacting with the Ledger nodes.
+- **Verifier**: The entity accepts only sucussfully verified operation results by verifying the digital signature of the validator. Verifier will be instantiated by calling the VerifierFactory#create method with associated with the Validator to connect. Each Verifier may be temporarily enabled or disabled. Note that "Validator" is apart from "Verifier" over a bi-directional channel.
+- **Verifier Registroy**: The information about active Verifier. The VerifierFactory uses this information to instantiate Verifier for the Business Logic Plugin. 
 
-### 5.2.2 Bootstrapping Cactus application
+### 5.2.1 Abstract of plugin architectures
 
+TBD
+
+### 5.2.2 Required components
+
+TBD
+
+### 5.2.3 Extension components
+
+TBD
+
+## 5.3 Processes to use the components
+
+### 5.3.1 Process for booting Cactus systems
+
+<!-- 
+  [CHANGE.LOG of refactoring new whitepaper]
+  * base: current whitepaper section 5.2.2 Bootstrapping Cactus application
+  -->
 Key components defined in 4.2.1 becomes ready to serve Cactus application service after  following procedures:
 1. Start `Validator`: The `Validator` of `Ledger Plugin` which is chosen for each `Ledger` depending the platform technology used (ex. Fabric, Besu, etc.) will be started by the administrator of `Validator`. `Validator` becomes ready status to accept connection from `Verifier` after initialization process is done.
 2. Start `Business Logic Plugin` implementation: The administrator of Cactus application service starts `Business Logic Plugin` which is implemented to execute business logic(s). `Business Logic Plugin` implementation first checks availability of depended `Ledger Plugin(s)`, then it trys to enable each `Ledger Plugin` with customized profile for actual integrating `Ledger`. This availability checks also covers determination on the status of connectivity from `Verifier` to `Validator`. The availability of each `Ledger` is registered and maintained at `Cactus Routing Interface`, and it allows bi-directional message communication between `Business Logic Plugin` and `Ledger`.
 
-### 5.2.3 Processing Service API call
+### 5.3.2 Process for issuing blockchain transactions triggered by commands
 
+## 5.4 I/F design between the components
+
+### 5.4.1 Service API
+
+<!-- 
+  [CHANGE.LOG of refactoring new whitepaper]
+  * base: current whitepaper section 5.2.3 Processing Service API call
+  -->
  `Service API call` is processed as follows:
 - **Step 1**: "Application user(s)" submits an API call to "Cactus routing interface".
 - **Step 2**: The API call is internally routed to "Business Logic Plugin" by "Cactus Routing Interface" for initiating associated business logic.
@@ -737,14 +760,201 @@ Then, "Business Logic Plugin" determines required ledger operation(s) to complet
 - **Step 4**: "Ledger Plugin" sends an event notification to "Business Logic Plugin" via "Cactus Routing Interface", when its sub-component "Verifier" detect an event regarding requested ledger operation to "Ledger".
 - **Step 5**: "Business Logic Plugin" receives a message from "Ledger Plugin" and determines completion or continuous of the business logic. When the business logic requires to continuous operations go to "Step 3" ,or end the process.
 
-<div style="page-break-after: always; visibility: hidden"><!-- \pagebreak --></div>
 
-## 5.3 APIs and communication protocols between Cactus components
+### 5.4.2 LedgerEvent Listener
 
-API for Service Application, communication protocol for business logic plugin to interact with "Ledger Plugins" will be described in this section.
+TBD
 
-### 5.3.1 Cactus Service API
+### 5.4.3 Verifier
 
+<!-- 
+  [CHANGE.LOG of refactoring new whitepaper]
+  * base: current whitepaper section 5.3.2 Ledger plugin API
+  -->
+Ledger plugin API is designed for allowing **Business Logic Plugin** to operate and/or monitor Ledger behind the components of **Verifier** and **Validator**.
+
+**Validator** provides a common set of functions that abstract communication between **Verifier** and **Ledger**.  Please note that Validator will not have any privilege to manipulate assets on the Ledger behind it.
+**Verifier** can receive requests from **Business Logic Plugin** and reply responses and events asynchronously.
+
+#### API
+
+APIs of Verifier are described as the following table:
+
+| Component | API Name | Input | Description |
+| --- | --- | --- | --- |
+| Verifier | `sendSignedTransaction: void;` | `stx`: SignedTransactionData | Request a verifier to execute a ledger operation |
+| Verifier | `execSyncFunction: Promise<any>;` | `contract`: string[]<br>`method`: string[]<br>`args`: string[] | Execute a synchronous function held by a smart contract |
+| Verifier | `startMonitor: void;` | none | Request a verifier to start monitoring ledger |
+| Verifier | `stopMonitor: void;` | `clientId`(string) | Request a verifier to stop monitoring ledger |
+| Verifier | addEventListener: void; | `eventListener`: IVerifierEventListener | Add an event listener |
+| Verifier | `removeEventListener: void;` | `eventListener`: IVerifierEventListener | Remove an event listener |
+| Verifier | `removeEventListenerAll: void;` | none | Add all event listeners |
+| Verifier | `getValidatorInfo: Map<string, string>;` | none | Get the validator information including version, name, ID, and other information |
+| Verifier | `getSmartContractList: Array<string>;` | none | Get the list of available smart contracts at the connected ledger |
+| Verifier | `getBalance: number;` | `address`: string | Get balance of an account for native token on a ledger (Optional) |
+| Verifier | `connect: void;` | `validatorURL`: string<br>authentication credential | request a validator to start a bi-directional communication channel via a verifier |
+| Verifier | `disconnect: void;` | none | request a validator to stop a bi-directional communication channel via a verifier |
+
+#### Interface and functions
+
+The detail information is described as following:
+
+- `package/ledger-plugin/Verifier-interface.ts`
+	- interface `IVerifier`
+		```
+		export interface Verifier {
+			sendSignedTransaction(stx: SignedTransactionData): void;
+			execSyncFunction(contract: string[], method: string[], args: string[]): Promise<any>;
+			startMonitor(): void;
+			stopMonitor(clientId: string): void;
+			addEventListener(eventListener: IVerifierEventListener): void;
+			removeEventListener(eventListener: IVerifierEventListener): void;
+			removeEventListenerAll(): void;
+			getValidatorInfo(): Map<string, string>;
+			getSmartContractList(): Array<string>;
+			getBalance(accountId: string): number; //**optional as ledgers**
+		}
+		```
+	- interface IVerifierEventListener
+		```
+		export interface IVerifierEventListener {
+			onEvent(ledgerEvent: LedgerEvent): void;
+			onEvent(connEvent: ConnectionEvent): void;
+		}
+		```
+
+	- class SignedTransactionData
+		```
+		export class SignedTransactionData {
+			apiType: string;
+			progress: string;
+			data: {};
+		}
+		```
+
+	- class LedgerEvent
+		```
+		export class LedgerEvent {
+			id: string = "";
+			verifierId: string = "";
+			data: object | null = null;
+			// NOTE: This class represents an event.
+			//       The purpose is to receive the connect event of Ledger on the Verifier side.
+		}
+		```
+
+	- class ConnectionEvent
+		```
+		export class ConnectionEvent {
+			id: string = "";
+			verifierId: string = "";
+			data: object | null = null;
+			// NOTE: This class represents an event.
+			//       The purpose is to receive the event of Ledger on the Verifier side.
+		}
+		```
+
+	- class SocketIoVerifier
+		```
+		class SocketIoVerifier implements IVerifier {
+			private id: string;
+			private settings: any;
+			constructor(id: string) {
+				this.id = id;
+			}
+			sendSignedTransaction(stx: SignedTransactionData):void {;}
+			execSyncFunction(contract: string[], method: string[], args: string[]): Promise<any> {return null;}
+			startMonitor():void {;}
+			stopMonitor(soketId: string): void {;}
+			addEventListener(eventListener: IVerifierEventListener): void {;}
+			removeEventListener(eventListener: IVerifierEventListener ): void {;}
+			removeEventListenerAll(): void {;}
+			getValidatorInfo(): Map<string, string> {return new Map()}
+			getSmartContractList(): Array<string> {return new Array()}
+			getBalance(accountId: string): number {return 0} // (optional)
+		}
+		```
+
+	- class VerifierFactory
+		```
+		export class VerifierFactory {
+			private id: string;
+			static create(id: string, url: string, type: string) : any {
+				var verifier = null;
+				
+				// NOTE: Generate if verifier is not instantiated.
+				// if (type== "socketio") {
+				//	 verifier = new SocketIoVerifier(id);	);
+				// } else if (type == "openapi") {
+				//	 verifier = new OpenApiVerifier(id);
+				// } else (...)
+				
+				return verifier;
+			}
+		}
+		```
+
+### 5.4.4 Validator Registry
+
+<!-- 
+  [CHANGE.LOG of refactoring new whitepaper]
+  * base: current whitepaper section 4.2.4 Consortium Management
+  -->
+Consortiums can be formed by cooperating entities (person, organization, etc.) who wish to contribute hardware/network
+resources to the operation of a `Cactus` cluster.
+
+What holds the consortiums together is the consensus among the members on who the members are, which is defined by the
+nodes' network hosts and public keys. The keys are produced from the Secp256k1 curve.
+
+The consortium plugin(s) main responsibility is to provide information about the consortium's members, nodes and public keys.
+`Cactus` does not prescribe any specific consensus algorithm for the addition or removal of consortium members, but
+rather focuses on the technical side of making it possible to operate a cluster of nodes under the ownership of
+separate entities without downtime while also keeping it possible to add/remove members.
+It is up to authors of plugins who can implement any kind of consortium management functionality as they see fit.
+The default implementation that Cactus ships with is in the `cactus-plugin-consortium-manual` package which - as the
+name implies - leaves the achievement of consensus to the initial set of members who are expected to produce the initial
+set of network hosts/public keys and then configure their Cactus nodes accordingly.
+This process and the details of operation are laid out in much more detail in the dedicated section of the manual
+consortium management plugin further below in this document.
+
+After the forming of the consortium with it's initial set of members (one or more) it is possible to enroll or remove certain new or existing members, but this can vary based on different implementations.
+
+### 5.4.5 Validator Key DB
+
+TBD
+
+### 5.4.6 Service Controller
+
+TBD
+
+## 5.5 Plugins
+
+### 5.5.1 Business Logic Plugin
+
+#### Functional overview
+
+<!-- 
+  [CHANGE.LOG of refactoring new whitepaper]
+  * base: current whitepaper section 5.3.3 Exection of "business logic" at "Business Logic Plugin"
+  -->
+The developper of **Business Logic Plugin** can implement business logic(s) as codes to interact with **Ledger Plugin**.
+The interaction between **Business Logic Plugin** and **Ledger Plugin** includes:
+- Submit a transaction request on targeted **Ledger Plugin**
+- Make a inquery to targeted **Ledger Plugin** (ex. account balance inquery)
+- Receive an event message, which contains transaction/inquery result(s) or error from **Ledger Plugin**
+
+NOTE: The transaction request is prepared by **Business Logic Plugin** using transaction template with given parameters
+
+The communication protocol between Business Logic Plugin, Verifier, and Validator as following:
+
+<img src="./communication-protocol-between-blp-and-lp.png" width="700">
+
+#### API
+
+<!-- 
+  [CHANGE.LOG of refactoring new whitepaper]
+  * base: current whitepaper section 5.3.1 Cactus Service API
+  -->
 Cactus Service API is exposed to Application user(s). This API is used to request for initializing a business logic which is implemented at **Business Logic Plugin**. It is also used for making inquery of execution status and final result if the business logic is completed.
 
 Following RESTful API design manner, the request can be mapped to one of CRUD operation with associated resource 'trade'.
@@ -774,236 +984,74 @@ Restricted endpoints requre a valid Token to be included in the headder of the r
 
 NOTE: resource `trade` and `logic` are cannot be updated nor delete
 
-### 5.3.2 Ledger plugin API
+#### Examples
 
+##### Car-trade manager
+
+TBD
+
+##### Supply-chain manager
+
+TBD
+
+## 5.6 Validator Server
+
+### 5.6.1 Ledger Connector
+
+#### Functional overview
+
+<!-- 
+  [CHANGE.LOG of refactoring new whitepaper]
+  * base: current whitepaper section 5.3.2 Ledger plugin API
+  -->
 Ledger plugin API is designed for allowing **Business Logic Plugin** to operate and/or monitor Ledger behind the components of **Verifier** and **Validator**.
 
 **Validator** provides a common set of functions that abstract communication between **Verifier** and **Ledger**.  Please note that Validator will not have any privilege to manipulate assets on the Ledger behind it.
-**Verifier** can receive requests from **Business Logic Plugin** and reply responses and events asynchronously.
 
-APIs of Verifier and Validator are described as the following table:
+#### API
 
-| No. | Component | API Name | Input | Description |
-| --- | --- | --- | --- | --- |
-| 1. | Verifier | getVerifierInformation | none | Get the verifier information including version, name, ID, and other information |
-| 2. | Verifier | getSmartContractList | none | Get the list of available smart contracts at the connected ledger |
-| 3. | Verifier | sendSignedTransaction | `signedTransaction`(string) | Request a verifier to execute a ledger operation |
-| 4. | Verifier | getBalance | `address`(string) | Get balance of an account for native token on a ledger |
-| 5. | Verifier | execSyncFunction | `address`(string)<br>`funcName`(string)<br>`args`(string[]) | Execute a synchronous function held by a smart contract |
-| 6. | Verifier | startMonitor | `clientId`(string)<br>`cb`(function) | Request a verifier to start monitoring ledger |
-| 7. | Verifier | stopMonitor | `clientId`(string) | Rrequest a verifier to stop monitoring ledger |
-| 8. | Verifier | connect | `validatorURL`(string)<br>authentication credential | request a validator to start a bi-directional communication channel via a verifier |
-| 9. | Verifier | disconnect | none | request a validator to stop a bi-directional communication channel via a verifier |
-| 10. | Validator | getValidatorInformation | `validatorURL`(string) | Get the validator information including version, name, ID, and other information |
-| 11. | Verifier | getSmartContractList | none | Get the list of available smart contracts at the connected ledger |
-| 12. | Validator | sendSignedTransaction | `signedTransaction`(string) | Send already-signed transactions to a ledger |
-| 13. | Validator | getBalance | `address`(string) | Get balance of an account for native token on a ledger |
-| 14. | Validator | execSyncFunction | `address`(string)<br>`funcName`(string)<br>`args`(string[]) | Execute a synchronous function held by a smart contract |
-| 15. | Validator | startMonitor | `clientId`(string)<br>`cb`(function) | Request a validator to start monitoring ledger |
-| 16. | Validator | stopMonitor | `clientId`(string) | Request a validator to stop monitoring ledger |
+TBD
 
-The detail information is described as following:
+#### Examples
 
-- `package/ledger-plugin/ledger-plugin.js`
-	- interface `Verifier`
-		```
-		interface Verifier {
-			// BLP -> Verifier
-			getSmartContractList(): List<ApiInfo>;
-			sendSignedTransaction();
-			getBalance();
-			execSyncFunction();
-			startMonitor();
-			stopMonitor();
-			connect();
-			disconnect();
-			// Validator -> Verifier
-			getVerifierInfo(): List<VerifierInfo>;
-		}
-		```
+##### Go-Ethereum Ledger Connector
 
-		- class `SmartContractInfo`, `RequestedData`
-			```
-			class SmartContractInfo {
-				address: string,
-				function: List<SmartContractFunction>
-			}
-			class SmartContractFunction {
-				functionName: string,
-				functionArgs: List<string> (e.g. {"int", "string", ...})
-			}
-			```
+TBD
 
-		- class `VerifierInfo`
-			```
-			class VerifierInfo {
-				version: string,
-				name: string,
-				ID: string,
-				otherData: List<VerifierInfoOtherData>
-			}
-			class VerifierInfoOtherData {
-				dataName: string,
-				dataType: string {"int", "string", ...}
-			}
-			```
+##### Fabric Ledger Connector
 
-		- function `getSmartContractList()`: `List<SmartContractInfo>`
-			- description:
-				- Get the list of available smart contracts at the connected ledger
-			- input parameter:
-				- none
+TBD
 
-		- function `sendSignedTransaction()`: `Promise<LedgerEvent>`
-			- description:
-				- Send already-signed transactions to a ledger
-			- input parameter:
-				- `signedTransaction`(string): signed transaction which is already serialized to string
+##### Besu Ledger Connector
 
-		- function `getBalance()`: `Promise<LedgerEvent>`
-			- description:
-				- Get balance of an account for native token on a ledger
-				- If the connected ledger does not have any default currency system (e.g. Hyperledger fabric), the function is set to be blank)
-			- input parameter:
-				- `address`(string): an account address
+TBD
 
-		- function `execSyncFunction()`: `Promise<LedgerEvent>`
-			- description:
-				- Execute a synchronous function held by a smart contract
-				- If the connected ledger does not have any smart contract system (e.g. Bitcoin), the function is set to be blank)
-			- input parameter:
-				- `address`(string): an address of a smart contract
-				- `funcName`(string): a name of a synchronous function of the smart contract
-				- `args`(string[]): arguments for the synchronous function
+##### Quorum Ledger Connector
 
-		- function `getVerifierInformation()`: `List<VerifierInfo>`
-			- description:
-				- Get the verifier information including version, name, ID, and other information
-			- input parameter:
-				- none
+TBD
 
-		- function `startMonitor()`: `Promise<LedgerEvent>`
-			- description:
-				- Request a verifier to start monitoring ledger
-			- input parameter:
-				- `clientId`(string): Client ID of the monitoring start request source
-				- `cb`(function): Callback function that receives the monitoring result at any time
 
-		- function `stopMonitor()`:
-			- description:
-				- Request a verifier to stop monitoring ledger
-			- input parameter:
-				- `clientId`(string): Client ID of the monitoring start request source
+-----
 
-		- function `connect()`:
-			- description:
-				- Request a verifier to start a bi-directional communication channel
-			- input parameter:
-				- none
-			- connecting profile:
-				- `validatorURL`(string)
-				- authentication credential
+# (Older parts of whitepaper Chapter 5)
 
-		- function `disconnect()`:
-			- description:
-				- Request a verifier to stop a bi-directional communication channel
-			- input parameter:
-				- none
-			- connecting profile:
-				- none
+## 5.7 Integration patterns
 
-	- interface `Validator`
-		```
-		interface Validator {
-			// Verifier -> Validator
-			getValidatorInfo(): List<ValidatorInfo>
-			getSmartContractList();
-			sendSignedTransaction();
-			getBalance();
-			execSyncFunction();
-			startMonitor();
-			stopMonitor();
-		}
-		```
+Hyperledger Cactus has several integration patterns as the following.
 
-		- class `ValidatorInfo`
-			```
-			class ValidatorInfo {
-				version: string,
-				name: string,
-				ID: string,
-				otherData: List<ValidatorInfoOtherData>
-			}
-			class ValidatorInfoOtherData {
-				dataName: string,
-				dataType: string {"int", "string", ...}
-			}
-			```
+- Note: In the following description, **Value (V)** means numerical assets (e.g. money). **Data (D)** means non-numerical assets (e.g. ownership proof). Ledger 1 is source ledger, Ledger 2 is destination ledger.
 
-		- function `getValidatorInformation()`:
-			- description:
-				- Get the validator information including version, name, ID, and other information
-			- input parameter:
-				- `validatorURL`(string)
+| No. | Name                | Pattern | Consistency                                                                                    |
+| --- | ------------------- | ------- | ---------------------------------------------------------------------------------------------- |
+| 1.  | value transfer      | V -> V  | check if V1 = V2 <br> (as V1 is value on ledger 1, V2 is value on ledger 2)                    |
+| 2.  | value-data transfer | V -> D  | check if data transfer is successful when value is transferred                                 |
+| 3.  | data-value transfer | D -> V  | check if value transfer is successful when data is transferred                                 |
+| 4.  | data transfer       | D -> D  | check if all D1 is copied on ledger 2 <br> (as D1 is data on ledger 1, D2 is data on ledger 2) |
+| 5.  | data merge          | D <-> D | check if D1 = D2 as a result <br> (as D1 is data on ledger 1, D2 is data on ledger 2)          |
 
-		- function `getSmartContractList()`: `List<SmartContractInfo>`
-			- description:
-				- Get the list of available smart contracts at the connected ledger
-			- input parameter:
-				- none
+## 5.8 Technical Architecture
 
-		- function `sendSignedTransaction()`: `Promise<LedgerEvent>`
-			- description:
-				- Send already-signed transactions to a ledger
-			- input parameter:
-				- `signedTransaction`(string): signed transaction which is already serialized to string
-
-		- function `getBalance()`: `Promise<LedgerEvent>`
-			- description:
-				- Get balance of an account for native token on a ledger
-				- If the connected ledger does not have any default currency system (e.g. Hyperledger fabric), the function is set to be blank)
-			- input parameter:
-				- `address`(string) : an account address
-
-		- function `execSyncFunction()`: `Promise<LedgerEvent>`
-			- description:
-				- Execute a synchronous function held by a smart contract
-				- If the connected ledger does not have any smart contract system (e.g. Bitcoin), the function is set to be blank)
-			- input parameter:
-				- `address`(string): an address of a smart contract
-				- `funcName`(string): a name of a synchronous function of the smart contract
-				- `args`(string[]): arguments for the synchronous function
-
-		- function `startMonitor()`: `Promise<LedgerEvent>`
-			- description:
-				- Request a verifier to start monitoring ledger
-			- input parameter:
-				- `clientId`(string): Client ID of the monitoring start request source
-				- `cb`(function): Callback function that receives the monitoring result at any time
-
-		- function `stopMonitor()`:
-			- description:
-				- Request a verifier to stop monitoring ledger
-			- input parameter:
-				- `clientId`(string): Client ID of the monitoring start request source
-
-### 5.3.3 Exection of "business logic" at "Business Logic Plugin"
-
-The developper of **Business Logic Plugin** can implement business logic(s) as codes to interact with **Ledger Plugin**.
-The interaction between **Business Logic Plugin** and **Ledger Plugin** includes:
-- Submit a transaction request on targeted **Ledger Plugin**
-- Make a inquery to targeted **Ledger Plugin** (ex. account balance inquery)
-- Receive an event message, which contains transaction/inquery result(s) or error from **Ledger Plugin**
-
-NOTE: The transaction request is prepared by **Business Logic Plugin** using transaction template with given parameters
-
-The communication protocol between Business Logic Plugin, Verifier, and Validator as following:
-
-<img src="./communication-protocol-between-blp-and-lp.png" width="700">
-
-## 5.4 Technical Architecture
-
-### 5.4.1 Monorepo Packages
+### 5.8.1 Monorepo Packages
 
 Hyperledger Cactus is divided into a set of npm packages that can be compiled separately or all at once.
 
@@ -1014,7 +1062,7 @@ Naming conventions for packages:
 * sdk-* for packages designed to be used directly by application developers except for the Javacript SDK which is named just `sdk` for simplicity.
 * All other packages should be named preferably as a single English word suggesting the most important feature/responsibility of the package itself.
 
-#### 5.4.1.1 cmd-api-server
+#### 5.8.1.1 cmd-api-server
 
 A command line application for running the API server that provides a unified REST based HTTP API for calling code.
 Contains the kernel of Hyperledger Cactus.
@@ -1025,7 +1073,7 @@ Comes with Swagger API definitions, plugin loading built-in.
 
 **The main responsibilities of this package are:**
 
-##### 5.4.1.1.1 Runtime Configuration Parsing and Validation
+##### 5.8.1.1.1 Runtime Configuration Parsing and Validation
 
 The core package is responsible for parsing runtime configuration from the usual sources (shown in order of precedence):
 * Explicit instructions via code (`config.setHttpPort(3000);`)
@@ -1035,7 +1083,7 @@ The core package is responsible for parsing runtime configuration from the usual
 
 The Apache 2.0 licensed node-convict library to be leveraged for the mechanical parts of the configuration parsing and validation: https://github.com/mozilla/node-convict
 
-##### 5.4.1.1.2 Configuration Schema - API Server
+##### 5.8.1.1.2 Configuration Schema - API Server
 
 To obtain the latest configuration options you can check out the latest source code of Cactus and then run this from the root folder of the project on a machine that has at least NodeJS 10 or newer installed:
 
@@ -1125,36 +1173,36 @@ Configuration Parameters
 
 ```
 
-##### 5.4.1.1.3 Plugin Loading/Validation
+##### 5.8.1.1.3 Plugin Loading/Validation
 
 Plugin loading happens through NodeJS's built-in module loader and the validation is performed by the Node Package Manager tool (npm) which verifies the byte level integrity of all installed modules.
 
-#### 5.4.1.2 core-api
+#### 5.8.1.2 core-api
 
 Contains interface definitions for the plugin architecture and other system level components that are to be shared among many other packages.
 `core-api` is intended to be a leaf package meaning that it shouldn't depend on other packages in order to make it safe for any and all packages to depend on `core-api` without having to deal with circular dependency issues.
 
-#### 5.4.1.3 sdk
+#### 5.8.1.3 sdk
 
 Javascript SDK (bindings) for the RESTful HTTP API provided by `cmd-api-server`.
 Compatible with both NodeJS and Web Browser (HTML 5 DOM + ES6) environments.
 
-#### 5.4.1.4 keychain
+#### 5.8.1.4 keychain
 
 Responsible for persistently storing highly sensitive data (e.g. private keys) in an encrypted format.
 
 For further details on the API surface, see the relevant section under `Plugin Architecture`.
 
-#### 5.4.1.5 tracing
+#### 5.8.1.5 tracing
 
 Contains components for tracing, logging and application performance management (APM) of code written for the rest of the Hyperledger Cactus packages.
 
-#### 5.4.1.6 audit
+#### 5.8.1.6 audit
 
 Components useful for writing and reading audit records that must be archived longer term and immutable.
 The latter properties are what differentiates audit logs from tracing/logging messages which are designed to be ephemeral and to support technical issues not regulatory/compliance/governance related issues.
 
-#### 5.4.1.7 document-storage
+#### 5.8.1.7 document-storage
 
 Provides structured or unstructured document storage and analytics capabilities for other packages such as `audit` and `tracing`.
 Comes with its own API surface that serves as an adapter for different storage backends via plugins.
@@ -1164,43 +1212,43 @@ By default, `Open Distro for ElasticSearch` is used as the storage backend: http
 
 > The API surface provided by this package is kept intentionally simple and feature-poor so that different underlying storage backends remain an option long term through the plugin architecture of `Cactus`.
 
-#### 5.4.1.8 relational-storage
+#### 5.8.1.8 relational-storage
 
 Contains components responsible for providing access to standard SQL compliant persistent storage.
 
 > The API surface provided by this package is kept intentionally simple and feature-poor so that different underlying storage backends remain an option long term through the plugin architecture of `Cactus`.
 
-#### 5.4.1.9 immutable-storage
+#### 5.8.1.9 immutable-storage
 
 Contains components responsible for providing access to immutable storage such as a distributed ledger with append-only semantics such as a blockchain network (e.g. Hyperledger Fabric).
 
 > The API surface provided by this package is kept intentionally simple and feature-poor so that different underlying storage backends remain an option long term through the plugin architecture of `Cactus`.
 
-### 5.4.2 Deployment Diagram
+### 5.8.2 Deployment Diagram
 
 Source file: `./docs/architecture/deployment-diagram.puml`
 
 <img width="700" src="https://www.plantuml.com/plantuml/png/0/ZLNHRjem57tFLzpnqasYJF3SeYQ43ZGAQ6LxgXGvpWKi73jo73eqzTzt7GA4aj4X8N1yphat9ySt3xbbnXQfX10pgNSfAWkXO2l3KXXD81W_UfxtIIWkYmJXBcKMZM3oAzTfgbNVku651f5csbYmQuGyCy8YB8L4sEa2mjdqPW4ACG6h8PEC8p3832x5xq-DmYXbjjOA-qsxacLMPn5V6vrYhFMc4PKmosAMauHdXQLEBc_kHOrs6Hg9oGeD15Bp3LypeM2iB1B02gtWaO3ugis6F5Yw_ywFg2R6SeZ5Ce4_dWTWa5kcLbIkzMorOIk4kT5RaQ1fEMIUTGa8z7doez1V-87_FFpypR1T6xhjKYXkdrJQq0eOtmYrWf3k1vmcjhvK4c-U-vvN_SMae5lN1gQQ_1Z88hTLxQtY5R4HFz4iWO19flY18EDZfN_pkftEjDAlq6V0WLQALjgyA0Wd2-XMs2YHjXln8-NjOsglHkrTK9lSyETZU4QpfSTRTu9b8c_meeQ-DCDnp3L7QkoZ9NkIEdjUnEHI5mcqvaKi1I_JPXJQaa6_X7uxPAqrJYXZmWhCosrnN9QQjV8BmrJEk7LPgKWxy4kI5QpgW3atOQYIw6UE9lBTBXRi4CZ1S3APZsRJMYAFH_4ybKyw5kMPsWf-FP2DVGLLNt5pNy6-h_ZGryIVBsRpQ33wCNiQ1hFPzrD_-s5mtbo8-SPDYC3eLv9xrzx9sr3areYui3IO9kKGs9jCyRfgxod6reNuse6c_IJklclleYof_Q-5ftFWQlS-hDtxi7RlqX_FZQcxJgVJtnyLpusEvZKX2UzIUtT_Vz-l1RHsqHbQMxefvtcKExYzxPyIHbVYyih-cPBi0wg4taj_0G00">
 
-### 5.4.3 Component Diagram
+### 5.8.3 Component Diagram
 
 <img width="700" src="https://www.plantuml.com/plantuml/png/0/ZLN1Rjim3BthAmXVrWQhiVGO546pPaK7x32i1NOPCCWownYH9LTKbdX9_tsKx2JsihRBIT9xV7mYAUUQl7H-LMaXVEarmesjQclGU9YNid2o-c7kcXgTnhn01n-rLKkraAM1pyOZ4tnf3Tmo4TVMBONWqD8taDnOGsXeHJDTM5VwHPM0951I5x0L02Cm73C1ZniVjzv9Gr85lTlIICqg4yYirIYDU1P2PiGKvI6PVtc8MhdsFQcue5LTM-SnFqrF4vWv9vkhKsZQnbPS2WPZbWFxld_Q4jTIQpmoliTj2sMXFWSaLciQpE-hmjP_ph7MjgduQ7-BlBl6Yg9nDNGtWLF7VSqsVzHQTq8opnqITTNjSGUtYI6aNeefkS7kKIg4v1CfPzTVdVrLvkXY7DOSDsJTU-jaWGCQdT8OzrPPVITDJWkvn6_uj49gxVZDWXm-HKzIAQozp3GEyn_gEpoUlfs7wb39NYAAYGWrAXwQeTu4XliWhxGaWkJXEAkTM7lB3evzZq2S1yO2ACAysekBsF49N5t9ed1OI8_JQOS-CxpRnaSYte6n7eE86VC6O0OyFOoP_PJ36Ao3oZfc7QOyRRdcU1H3CZo-3SWQaAQ9HBEgCdxNzX7EVgEpu2rKZ9s7N54BJHwDyFACBRwFviuXJOCj4OVtUSUN-jlpvT5pR-B3YFFiRBXskc7_1vClsmwFudyTzpAzPVwoCpzYxwH2ErJuz54PcieDEO3hLx3OtbTmgaz1qSv4CavWjqjJk-LbceuI7YB-26_ONBf_1SCjXMto8KqvahN3YgEm5litq-cC_W7oK8uX_aBM0K5SSvNu7-0F">
 
-### 5.4.4 Class Diagram
+### 5.8.4 Class Diagram
 
-### 5.4.5 Sequence Diagram - Transactions
+### 5.8.5 Sequence Diagram - Transactions
 
 TBD
 
 <div style="page-break-after: always; visibility: hidden"><!-- \pagebreak --></div>
 
-## 5.5 Transaction Protocol Specification
+## 5.9 Transaction Protocol Specification
 
-### 5.5.1 Handshake Mechanism
+### 5.9.1 Handshake Mechanism
 
 TBD
 
-### 5.5.2 Transaction Protocol Negotiation
+### 5.9.2 Transaction Protocol Negotiation
 
 Participants in the transaction must have a handshake mechanism where they agree on one of the supported protocols to use to execute the transaction. The algorithm looks an intersection in the list of supported algorithms by the participants.
 
@@ -1212,7 +1260,7 @@ Means for establishing bi-directional communication channels through proxies/fir
 
 <div style="page-break-after: always; visibility: hidden"><!-- \pagebreak --></div>
 
-## 5.6 Plugin Architecture
+## 5.10 Plugin Architecture
 
 Since our goal is integration, it is critical that `Cactus` has the flexibility of supporting most ledgers, even those that don't exist today.
 
@@ -1234,7 +1282,7 @@ An overarching theme for all aspects that are covered by the plugin architecture
 
 ---
 
-### 5.6.1 Ledger Connector Plugins
+### 5.11.1 Ledger Connector Plugins
 
 Success is defined as:
 1. Adding support in `Cactus` for a ledger invented in the future requires no `core` code changes, but instead can be implemented by simply adding a corresponding connector plugin to deal with said newly invented ledger.
@@ -1269,7 +1317,7 @@ export enum PermissionScheme {
 
 ```
 
-### 5.6.2 Identity Federation Plugins
+### 5.11.2 Identity Federation Plugins
 
 Identity federation plugins operate inside the API Server and need to implement the interface of a common PassportJS Strategy:
 https://github.com/jaredhanson/passport-strategy#implement-authentication
@@ -1286,14 +1334,14 @@ abstract class IdentityFederationPlugin {
 }
 ```
 
-#### 5.6.2.1 X.509 Certificate Plugin
+#### 5.11.2.1 X.509 Certificate Plugin
 
 The X.509 Certificate plugin facilitates clients authentication by allowing them to present a certificate instead of operating with authentication tokens.
 This technically allows calling clients to assume the identities of the validator nodes through the REST API without having to have access to the signing private key of said validator node.
 
 PassportJS already has plugins written for client certificate validation, but we go one step further with this plugin by providing the option to obtain CA certificates from the validator nodes themselves at runtime.
 
-### 5.6.3 Key/Value Storage Plugins
+### 5.11.3 Key/Value Storage Plugins
 
 Key/Value Storage plugins allow the higher-level packages to store and retrieve configuration metadata for a `Cactus` cluster such as:
 * Who are the active validators and what are the hosts where said validators are accessible over a network?
@@ -1308,7 +1356,7 @@ interface KeyValueStoragePlugin {
 }
 ```
 
-### 5.6.4 Serverside Keychain Plugins
+### 5.11.4 Serverside Keychain Plugins
 
 The API surface of keychain plugins is roughly the equivalent of the key/value *Storage* plugins, but under the hood these are of course guaranteed to encrypt the stored data at rest by way of leveraging storage backends purpose built for storing and managing secrets.
 
@@ -1331,7 +1379,7 @@ interface KeychainPlugin extends KeyValueStoragePlugin {
 
 <div style="page-break-after: always; visibility: hidden"><!-- \pagebreak --></div>
 
-### 5.6.5 Manual Consortium Plugin
+### 5.11.5 Manual Consortium Plugin
 
 This plugin is the default/simplest possible implementation of consortium management.
 It delegates the initial trust establishment to human actors to be done manually or offline if you will.
@@ -1439,7 +1487,6 @@ There's many other ways to perform the initial agreement that happens offline, b
 provided here for ease of understanding:
 
 <img width="700" src="./plugin-consortium-manual-bootstrap-sequence-diagram.png">
-
 
 # 6. Identities, Authentication, Authorization
 
